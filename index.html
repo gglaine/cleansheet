@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Save the Line — TopStreak Mini-Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <div class="topstreak-mark" aria-label="TopStreak">
+        <span class="mark-ball" aria-hidden="true">⚽</span>
+        <span class="brand-copy"><b>TOP<span>STREAK</span></b><small>TEST YOUR FOOTBALL IQ</small></span>
+      </div>
+      <span class="mini-badge">🎮 MINI-JEU</span>
+    </header>
+
+    <section class="title-lockup" aria-label="Game title">
+      <h1>SAVE <em>THE LINE</em></h1>
+      <p>LE DÉFI DU GARDIEN</p>
+    </section>
+
+    <section class="hud" aria-label="Goalkeeper performance">
+      <div class="stat">
+        <span class="stat-icon stat-icon-save" aria-hidden="true">✋</span>
+        <span><small>SAVES</small><strong id="score">000</strong></span>
+      </div>
+      <div class="hud-divider" aria-hidden="true"></div>
+      <div class="stat">
+        <span class="stat-icon" aria-hidden="true">⚽</span>
+        <span><small>SHOTS</small><strong id="shots">000</strong></span>
+      </div>
+      <div class="hud-divider" aria-hidden="true"></div>
+      <div class="stat stat-right">
+        <span class="stat-icon stat-icon-shield" aria-hidden="true">◆</span>
+        <span><small>SAVE %</small><strong id="savePct">100%</strong></span>
+      </div>
+    </section>
+
+    <section class="game-stage">
+      <div class="level-badge">LEVEL <b id="level">1</b><span>BEST <strong id="best">000</strong></span></div>
+      <canvas id="game" width="420" height="560" aria-label="Slide the goalkeeper left and right to stop incoming shots"></canvas>
+
+      <div id="overlay" class="overlay">
+        <div class="overlay-card">
+          <p id="overlayEyebrow" class="eyebrow">GOALKEEPER ARCADE</p>
+          <h2 id="overlayTitle">Save the line!</h2>
+          <p id="overlayCopy">Read the build-up, track the final shot and cover the goal. Every on-target shot counts.</p>
+          <button id="startBtn" type="button">START RUN</button>
+          <small>Drag horizontally · ← → on keyboard</small>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls" aria-label="Controls">
+      <div class="slide-cue" aria-hidden="true"><span>←</span><b>☝</b><span>→</span></div>
+      <strong>SLIDE TO SAVE</strong>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
