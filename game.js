@@ -2,7 +2,7 @@
   "use strict";
 
   const canvas = document.getElementById("game");
-  const ctx = canvas.getContext("2d");
+  let ctx = canvas.getContext("2d");
   const scoreEl = document.getElementById("score");
   const shotsEl = document.getElementById("shots");
   const savePctEl = document.getElementById("savePct");
@@ -16,6 +16,10 @@
 
   const W = canvas.width;
   const H = canvas.height;
+  const STATIC_LAYER = document.createElement("canvas");
+  STATIC_LAYER.width = W;
+  STATIC_LAYER.height = H;
+  const STATIC_CTX = STATIC_LAYER.getContext("2d");
 
   // Core gameplay: keep one decisive shot at a time, but let the attack build through passes.
   const BALL_RADIUS = 14;
@@ -38,6 +42,7 @@
   const DRIBBLE_CYCLE_MS = 250;
   const DRIBBLE_MIN_LEAD = 5;
   const DRIBBLE_MAX_LEAD = 12;
+  const FRAME_INTERVAL_MS = 16.6;
 
   const PENALTY_AREA_WIDTH = W * 0.72;
   const PENALTY_AREA_TOP = H * 0.58;
@@ -56,6 +61,7 @@
 
   let running = false;
   let lastTime = 0;
+  let lastRenderTime = 0;
   let score = 0;
   let shotsOnTarget = 0;
   let goalsConceded = 0;
@@ -122,6 +128,7 @@
     const now = performance.now();
     nextPlayAt = now + 360;
     lastTime = now;
+    lastRenderTime = 0;
     requestAnimationFrame(loop);
   }
 
@@ -270,6 +277,16 @@
 
   function loop(now) {
     if (!running) return;
+    if (lastRenderTime) {
+      const frameElapsed = now - lastRenderTime;
+      if (frameElapsed < FRAME_INTERVAL_MS) {
+        requestAnimationFrame(loop);
+        return;
+      }
+      lastRenderTime = now - (frameElapsed % FRAME_INTERVAL_MS);
+    } else {
+      lastRenderTime = now;
+    }
     const dt = Math.min((now - lastTime) / 1000, 0.035);
     lastTime = now;
     update(now, dt);
@@ -387,6 +404,7 @@
     const now = performance.now();
     nextPlayAt = now + 340;
     lastTime = now;
+    lastRenderTime = 0;
     requestAnimationFrame(loop);
   }
 
@@ -479,12 +497,20 @@
     if (overlayAction === "next") startNextLevel(); else resetGame();
   });
 
-  function draw(now) {
+  function buildStaticLayer() {
+    const liveCtx = ctx;
+    ctx = STATIC_CTX;
     ctx.clearRect(0, 0, W, H);
     drawPitch();
     drawFieldMarkings();
     drawArenaAccents();
     drawGoal();
+    ctx = liveCtx;
+  }
+
+  function draw(now) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(STATIC_LAYER, 0, 0);
     if (play) drawPlay(now);
 
     for (const ball of balls) {
@@ -644,11 +670,11 @@
     const cycle = ((now + player.phase * 80) % DRIBBLE_CYCLE_MS) / DRIBBLE_CYCLE_MS;
     const touch = cycle < 0.5 ? cycle * 2 : (1 - cycle) * 2;
     const lead = DRIBBLE_MIN_LEAD + (DRIBBLE_MAX_LEAD - DRIBBLE_MIN_LEAD) * touch;
-    const roll = (lead - DRIBBLE_MIN_LEAD) / (BALL_RADIUS * 0.62);
+    const side = cycle < 0.5 ? -1 : 1;
     return {
-      x: player.x,
+      x: player.x + side * (2.5 + touch * 2.5),
       y: player.y + 24 + lead,
-      rotation: roll
+      rotation: cycle * Math.PI * 2
     };
   }
 
@@ -1101,10 +1127,8 @@
   }
 
   // Static first frame: show a readable two-player build-up rather than an unexplained loose ball.
-  drawPitch();
-  drawFieldMarkings();
-  drawArenaAccents();
-  drawGoal();
+  buildStaticLayer();
+  ctx.drawImage(STATIC_LAYER, 0, 0);
   play = {
     players: [
       { x: W * 0.29, y: H * 0.19, startY: H * 0.19, runTargetY: H * 0.31, phase: 0, jersey: "white" },
