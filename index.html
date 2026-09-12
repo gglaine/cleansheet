@@ -13,7 +13,10 @@
         <span class="mark-ball" aria-hidden="true">⚽</span>
         <span class="brand-copy"><b>TOP<span>STREAK</span></b><small>TEST YOUR FOOTBALL IQ</small></span>
       </div>
-      <span class="mini-badge">🎮 MINI-JEU</span>
+      <div class="topbar-actions">
+        <button id="soundBtn" class="sound-btn" type="button" aria-pressed="false" aria-label="Mute music">♪ ON</button>
+        <span class="mini-badge">🎮 MINI-JEU</span>
+      </div>
     </header>
 
     <section class="title-lockup" aria-label="Game title">
@@ -47,6 +50,19 @@
           <p id="overlayEyebrow" class="eyebrow">GOALKEEPER ARCADE</p>
           <h2 id="overlayTitle">Save the line!</h2>
           <p id="overlayCopy">Read the build-up, track the final shot and cover the goal. Every on-target shot counts.</p>
+
+          <div id="milestoneStats" class="milestone-stats" hidden>
+            <span><small>SAVES</small><strong id="milestoneSaves">00</strong></span>
+            <span><small>SHOTS</small><strong id="milestoneShots">00</strong></span>
+            <span><small>SAVE RATE</small><strong id="milestoneRate">100%</strong></span>
+          </div>
+
+          <div id="milestoneBadge" class="milestone-badge" hidden>
+            <strong id="milestoneBadgeText">SUCCESS</strong>
+            <em id="milestoneBest" hidden>NEW BEST!</em>
+          </div>
+
+          <p id="nextStage" class="next-stage" hidden></p>
           <button id="startBtn" type="button">START RUN</button>
           <small>Drag horizontally · ← → on keyboard</small>
         </div>
@@ -59,6 +75,7 @@
     </section>
   </main>
 
+  <audio id="themeMusic" src="cleansheet-theme.mp3" preload="metadata" loop></audio>
   <script src="game.js"></script>
 </body>
 </html>

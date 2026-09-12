@@ -13,6 +13,16 @@
   const overlayTitle = document.getElementById("overlayTitle");
   const overlayCopy = document.getElementById("overlayCopy");
   const startBtn = document.getElementById("startBtn");
+  const soundBtn = document.getElementById("soundBtn");
+  const themeMusic = document.getElementById("themeMusic");
+  const milestoneStats = document.getElementById("milestoneStats");
+  const milestoneSaves = document.getElementById("milestoneSaves");
+  const milestoneShots = document.getElementById("milestoneShots");
+  const milestoneRate = document.getElementById("milestoneRate");
+  const milestoneBadge = document.getElementById("milestoneBadge");
+  const milestoneBadgeText = document.getElementById("milestoneBadgeText");
+  const milestoneBest = document.getElementById("milestoneBest");
+  const nextStage = document.getElementById("nextStage");
 
   const W = canvas.width;
   const H = canvas.height;
@@ -36,7 +46,7 @@
   const RECEIVE_MS = 170;
   const SHOT_WINDUP_MS = 180;
   const WIDE_SHOT_CHANCE = 0.12;
-  const SAVES_PER_LEVEL = 5;
+  const SHOTS_PER_LEVEL = 5;
   const MAX_LEVEL = 4;
   const ATTACK_RUN_MS = 520;
   const DRIBBLE_CYCLE_MS = 250;
@@ -75,11 +85,50 @@
   let pointerActive = false;
   let currentLevel = 1;
   let levelStartScore = 0;
+  let levelStartShots = 0;
+  let bestAtRunStart = 0;
+  let musicMuted = false;
   let overlayAction = "restart";
   const keys = { left: false, right: false };
 
   let best = Number(localStorage.getItem("saveTheLineBest") || 0);
   bestEl.textContent = String(best).padStart(3, "0");
+  themeMusic.volume = 0.18;
+
+  function setMusicMode(mode) {
+    if (musicMuted) return;
+    themeMusic.volume = mode === "milestone" ? 0.31 : 0.18;
+  }
+
+  function ensureMusic() {
+    if (musicMuted) return;
+    setMusicMode("game");
+    const playPromise = themeMusic.play();
+    if (playPromise && typeof playPromise.catch === "function") playPromise.catch(() => {});
+  }
+
+  function setMilestoneUi(visible, isFinal = false) {
+    overlay.dataset.milestone = visible ? "true" : "false";
+    overlay.dataset.final = visible && isFinal ? "true" : "false";
+    milestoneStats.hidden = !visible;
+    milestoneBadge.hidden = !visible;
+    nextStage.hidden = !visible;
+    if (!visible) milestoneBest.hidden = true;
+  }
+
+  function performanceLabel(savePercentage) {
+    if (savePercentage === 100) return "CLEAN SHEET";
+    if (savePercentage >= 80) return "WALL MODE";
+    if (savePercentage >= 60) return "STILL STANDING";
+    return "UNDER PRESSURE";
+  }
+
+  function nextStageCopy(completedLevel) {
+    if (completedLevel === 1) return "NEXT: FASTER RELEASES";
+    if (completedLevel === 2) return "NEXT: MORE CURVE + BUILD-UP";
+    if (completedLevel === 3) return "FINAL STAGE: MAX PRESSURE";
+    return "20 SHOTS FACED · RUN COMPLETE";
+  }
 
   function level() {
     return currentLevel;
@@ -107,6 +156,8 @@
     goalsConceded = 0;
     currentLevel = 1;
     levelStartScore = 0;
+    levelStartShots = 0;
+    bestAtRunStart = best;
     overlayAction = "restart";
     balls = [];
     play = null;
@@ -123,7 +174,9 @@
     overlayTitle.textContent = "Save the line!";
     overlayCopy.textContent = "Read the build-up, track the final shot and cover the goal. Every on-target shot counts.";
     startBtn.textContent = "START RUN";
+    setMilestoneUi(false);
     overlay.hidden = true;
+    ensureMusic();
 
     const now = performance.now();
     nextPlayAt = now + 360;
@@ -377,20 +430,37 @@
     stopControls();
     balls = [];
     play = null;
-    overlayEyebrow.textContent = `LEVEL ${completedLevel} COMPLETE`;
-    overlayTitle.textContent = completedLevel >= MAX_LEVEL ? "Run complete!" : "Line held!";
+
+    const isFinal = completedLevel >= MAX_LEVEL;
     const savePercentage = shotsOnTarget ? Math.round((score / shotsOnTarget) * 100) : 100;
-    overlayCopy.textContent = completedLevel >= MAX_LEVEL
-      ? `${score} saves from ${shotsOnTarget} shots on target · ${savePercentage}% save rate.`
-      : `${SAVES_PER_LEVEL} saves secured. Next level brings a more complex attack.`;
-    startBtn.textContent = completedLevel >= MAX_LEVEL ? "PLAY AGAIN" : `START LEVEL ${completedLevel + 1}`;
-    overlayAction = completedLevel >= MAX_LEVEL ? "restart" : "next";
+    const levelSaves = score - levelStartScore;
+    const levelShots = shotsOnTarget - levelStartShots;
+    const levelRate = levelShots ? Math.round((levelSaves / levelShots) * 100) : 100;
+
+    overlayEyebrow.textContent = isFinal ? "GOALKEEPER CHALLENGE" : `LEVEL ${completedLevel} COMPLETE`;
+    overlayTitle.textContent = isFinal ? "Challenge complete!" : "Level up!";
+    overlayCopy.textContent = isFinal
+      ? `${performanceLabel(savePercentage)} · You faced the full run.`
+      : `${performanceLabel(levelRate)} · ${levelSaves} saves from ${levelShots} shots in this stage.`;
+
+    milestoneSaves.textContent = String(score).padStart(2, "0");
+    milestoneShots.textContent = String(shotsOnTarget).padStart(2, "0");
+    milestoneRate.textContent = `${savePercentage}%`;
+    milestoneBadgeText.textContent = savePercentage === 100 ? "PERFECT WALL" : (isFinal ? "SUCCESS" : "CHECKPOINT");
+    milestoneBest.hidden = !(score > bestAtRunStart);
+    nextStage.textContent = nextStageCopy(completedLevel);
+
+    startBtn.textContent = isFinal ? "PLAY AGAIN" : `CONTINUE · LEVEL ${completedLevel + 1}`;
+    overlayAction = isFinal ? "restart" : "next";
+    setMilestoneUi(true, isFinal);
+    setMusicMode("milestone");
     overlay.hidden = false;
   }
 
   function startNextLevel() {
     currentLevel += 1;
     levelStartScore = score;
+    levelStartShots = shotsOnTarget;
     running = true;
     balls = [];
     play = null;
@@ -400,6 +470,8 @@
     keeperX = W / 2;
     stopControls();
     updateLevel();
+    setMilestoneUi(false);
+    setMusicMode("game");
     overlay.hidden = true;
     const now = performance.now();
     nextPlayAt = now + 340;
@@ -409,7 +481,7 @@
   }
 
   function checkLevelComplete() {
-    if (score - levelStartScore < SAVES_PER_LEVEL) return false;
+    if (shotsOnTarget - levelStartShots < SHOTS_PER_LEVEL) return false;
     const completedLevel = currentLevel;
     showLevelOverlay(completedLevel);
     return true;
@@ -452,7 +524,7 @@
     goalsConceded += 1;
     concededFlash = { x: ball.x, started: now };
     updatePerformanceHud();
-    finishPlay(now);
+    if (!checkLevelComplete()) finishPlay(now);
   }
 
   function pointerX(event) {
@@ -493,6 +565,20 @@
     if (event.key === "ArrowLeft") keys.left = false;
     if (event.key === "ArrowRight") keys.right = false;
   });
+  soundBtn.addEventListener("click", () => {
+    musicMuted = !musicMuted;
+    soundBtn.setAttribute("aria-pressed", String(musicMuted));
+    soundBtn.setAttribute("aria-label", musicMuted ? "Turn music on" : "Mute music");
+    soundBtn.textContent = musicMuted ? "♪ OFF" : "♪ ON";
+    if (musicMuted) {
+      themeMusic.pause();
+    } else {
+      const playPromise = themeMusic.play();
+      if (playPromise && typeof playPromise.catch === "function") playPromise.catch(() => {});
+      setMusicMode(running ? "game" : "milestone");
+    }
+  });
+
   startBtn.addEventListener("click", () => {
     if (overlayAction === "next") startNextLevel(); else resetGame();
   });
