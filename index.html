@@ -6,8 +6,14 @@
   <title>Save the Line — TopStreak Mini-Game</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-  <main class="game-shell">
+<body class="splash-open">
+  <section id="splashScreen" class="splash-screen" aria-label="CleanSheet cover">
+    <div class="splash-art" role="img" aria-label="CleanSheet football goalkeeper game cover">
+      <button id="splashStartBtn" class="splash-start" type="button" aria-label="Start CleanSheet"></button>
+    </div>
+  </section>
+
+  <main id="gameShell" class="game-shell" inert>
     <header class="topbar">
       <div class="topstreak-mark" aria-label="TopStreak">
         <span class="mark-ball" aria-hidden="true">⚽</span>

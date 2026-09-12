@@ -21,6 +21,48 @@ body {
   padding: 6px 5px 16px;
 }
 
+
+/* Cover splash — isolated from gameplay UI and canvas rendering. */
+body.splash-open { overflow: hidden; }
+.splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #00140e;
+}
+.splash-screen[hidden] { display: none; }
+.splash-art {
+  position: relative;
+  flex: 0 0 auto;
+  height: 100vh;
+  height: 100svh;
+  aspect-ratio: 941 / 1672;
+  background: url("assets/covers/cleansheet-cover.webp") center / 100% 100% no-repeat;
+}
+.splash-start {
+  position: absolute;
+  left: 16.5%;
+  top: 69.2%;
+  width: 67%;
+  height: 9.4%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.splash-start:active { transform: none; box-shadow: none; }
+.splash-start:focus-visible {
+  outline: 3px solid var(--lime);
+  outline-offset: -4px;
+}
+
 .game-shell {
   width: min(100%, 460px);
   overflow: hidden;

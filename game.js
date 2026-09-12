@@ -1,6 +1,9 @@
 (() => {
   "use strict";
 
+  const splashScreen = document.getElementById("splashScreen");
+  const splashStartBtn = document.getElementById("splashStartBtn");
+  const gameShell = document.getElementById("gameShell");
   const canvas = document.getElementById("game");
   let ctx = canvas.getContext("2d");
   const scoreEl = document.getElementById("score");
@@ -668,6 +671,13 @@
       if (playPromise && typeof playPromise.catch === "function") playPromise.catch(() => {});
       setMusicMode(running ? "game" : "milestone");
     }
+  });
+
+  splashStartBtn.addEventListener("click", () => {
+    splashScreen.hidden = true;
+    document.body.classList.remove("splash-open");
+    gameShell.inert = false;
+    resetGame();
   });
 
   startBtn.addEventListener("click", () => {
