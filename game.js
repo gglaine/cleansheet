@@ -13,6 +13,10 @@
   const overlayTitle = document.getElementById("overlayTitle");
   const overlayCopy = document.getElementById("overlayCopy");
   const startBtn = document.getElementById("startBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const pauseOverlay = document.getElementById("pauseOverlay");
+  const resumeBtn = document.getElementById("resumeBtn");
+  const controlsPad = document.getElementById("controlsPad");
   const soundBtn = document.getElementById("soundBtn");
   const themeMusic = document.getElementById("themeMusic");
   const milestoneStats = document.getElementById("milestoneStats");
@@ -47,7 +51,8 @@
   const SHOT_WINDUP_MS = 180;
   const WIDE_SHOT_CHANCE = 0.12;
   const SHOTS_PER_LEVEL = 5;
-  const MAX_LEVEL = 4;
+  const MAX_LEVEL = 12;
+  const LEVEL_TRANSITION_MS = 1050;
   const ATTACK_RUN_MS = 520;
   const DRIBBLE_CYCLE_MS = 250;
   const DRIBBLE_MIN_LEAD = 5;
@@ -88,6 +93,9 @@
   let levelStartShots = 0;
   let bestAtRunStart = 0;
   let musicMuted = false;
+  let paused = false;
+  let pauseStartedAt = 0;
+  let levelTransitionTimer = 0;
   let overlayAction = "restart";
   const keys = { left: false, right: false };
 
@@ -124,10 +132,12 @@
   }
 
   function nextStageCopy(completedLevel) {
+    if (completedLevel >= MAX_LEVEL) return `${MAX_LEVEL * SHOTS_PER_LEVEL} SHOTS FACED · RUN COMPLETE`;
     if (completedLevel === 1) return "NEXT: FASTER RELEASES";
     if (completedLevel === 2) return "NEXT: MORE CURVE + BUILD-UP";
-    if (completedLevel === 3) return "FINAL STAGE: MAX PRESSURE";
-    return "20 SHOTS FACED · RUN COMPLETE";
+    if (completedLevel === 3) return "NEXT: MORE ATTACKING VARIETY";
+    if (completedLevel < 8) return `NEXT: LEVEL ${completedLevel + 1} · PRESSURE RISING`;
+    return `NEXT: LEVEL ${completedLevel + 1} · ELITE PRESSURE`;
   }
 
   function level() {
@@ -150,7 +160,9 @@
   }
 
   function resetGame() {
+    clearTimeout(levelTransitionTimer);
     running = true;
+    paused = false;
     score = 0;
     shotsOnTarget = 0;
     goalsConceded = 0;
@@ -174,6 +186,11 @@
     overlayTitle.textContent = "Save the line!";
     overlayCopy.textContent = "Read the build-up, track the final shot and cover the goal. Every on-target shot counts.";
     startBtn.textContent = "START RUN";
+    startBtn.hidden = false;
+    pauseBtn.disabled = false;
+    pauseBtn.setAttribute("aria-pressed", "false");
+    pauseBtn.textContent = "Ⅱ PAUSE";
+    pauseOverlay.hidden = true;
     setMilestoneUi(false);
     overlay.hidden = true;
     ensureMusic();
@@ -211,7 +228,17 @@
     if (currentLevel === 1) return { passChance: 0, threeChance: 0, runMin: 44, runMax: 76, curveChance: 0, curveMin: 0, curveMax: 0 };
     if (currentLevel === 2) return { passChance: 0.36, threeChance: 0, runMin: 58, runMax: 96, curveChance: 0.12, curveMin: 10, curveMax: 18 };
     if (currentLevel === 3) return { passChance: 0.58, threeChance: 0.26, runMin: 72, runMax: 118, curveChance: 0.28, curveMin: 14, curveMax: 25 };
-    return { passChance: 0.74, threeChance: 0.42, runMin: 86, runMax: 138, curveChance: 0.44, curveMin: 18, curveMax: 32 };
+
+    const extra = currentLevel - 4;
+    return {
+      passChance: Math.min(0.88, 0.74 + extra * 0.02),
+      threeChance: Math.min(0.60, 0.42 + extra * 0.025),
+      runMin: Math.min(110, 86 + extra * 3),
+      runMax: Math.min(162, 138 + extra * 3),
+      curveChance: Math.min(0.60, 0.44 + extra * 0.02),
+      curveMin: Math.min(24, 18 + extra * 0.75),
+      curveMax: Math.min(38, 32 + extra * 0.75)
+    };
   }
 
   function assignAttackerRuns(players, shooterIndex) {
@@ -330,6 +357,12 @@
 
   function loop(now) {
     if (!running) return;
+    if (paused) {
+      lastTime = now;
+      draw(pauseStartedAt);
+      requestAnimationFrame(loop);
+      return;
+    }
     if (lastRenderTime) {
       const frameElapsed = now - lastRenderTime;
       if (frameElapsed < FRAME_INTERVAL_MS) {
@@ -421,11 +454,13 @@
 
   function stopControls() {
     pointerActive = false;
+    controlsPad.dataset.active = "false";
     keys.left = false;
     keys.right = false;
   }
 
   function showLevelOverlay(completedLevel) {
+    clearTimeout(levelTransitionTimer);
     running = false;
     stopControls();
     balls = [];
@@ -451,13 +486,20 @@
     nextStage.textContent = nextStageCopy(completedLevel);
 
     startBtn.textContent = isFinal ? "PLAY AGAIN" : `CONTINUE · LEVEL ${completedLevel + 1}`;
+    startBtn.hidden = !isFinal;
+    pauseBtn.disabled = true;
     overlayAction = isFinal ? "restart" : "next";
     setMilestoneUi(true, isFinal);
     setMusicMode("milestone");
     overlay.hidden = false;
+
+    if (!isFinal) {
+      levelTransitionTimer = window.setTimeout(startNextLevel, LEVEL_TRANSITION_MS);
+    }
   }
 
   function startNextLevel() {
+    clearTimeout(levelTransitionTimer);
     currentLevel += 1;
     levelStartScore = score;
     levelStartShots = shotsOnTarget;
@@ -470,6 +512,8 @@
     keeperX = W / 2;
     stopControls();
     updateLevel();
+    startBtn.hidden = false;
+    pauseBtn.disabled = false;
     setMilestoneUi(false);
     setMusicMode("game");
     overlay.hidden = true;
@@ -527,35 +571,79 @@
     if (!checkLevelComplete()) finishPlay(now);
   }
 
-  function pointerX(event) {
-    const rect = canvas.getBoundingClientRect();
-    return ((event.clientX - rect.left) / rect.width) * W;
-  }
-
   function setKeeperFromPointer(event) {
-    const x = pointerX(event);
-    keeperX = Math.max(KEEPER_MIN_X, Math.min(KEEPER_MAX_X, x));
+    const rect = controlsPad.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+    keeperX = KEEPER_MIN_X + ratio * (KEEPER_MAX_X - KEEPER_MIN_X);
   }
 
-  canvas.addEventListener("pointerdown", (event) => {
-    if (!running) return;
+  controlsPad.addEventListener("pointerdown", (event) => {
+    if (!running || paused) return;
     pointerActive = true;
-    canvas.setPointerCapture(event.pointerId);
+    controlsPad.dataset.active = "true";
+    controlsPad.setPointerCapture(event.pointerId);
     setKeeperFromPointer(event);
+    event.preventDefault();
   });
-  canvas.addEventListener("pointermove", (event) => {
-    if (!running || !pointerActive) return;
+  controlsPad.addEventListener("pointermove", (event) => {
+    if (!running || paused || !pointerActive) return;
     setKeeperFromPointer(event);
+    event.preventDefault();
   });
-  canvas.addEventListener("pointerup", (event) => {
+  controlsPad.addEventListener("pointerup", (event) => {
     pointerActive = false;
-    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    controlsPad.dataset.active = "false";
+    if (controlsPad.hasPointerCapture(event.pointerId)) controlsPad.releasePointerCapture(event.pointerId);
   });
-  canvas.addEventListener("pointercancel", () => { pointerActive = false; });
+  controlsPad.addEventListener("pointercancel", () => {
+    pointerActive = false;
+    controlsPad.dataset.active = "false";
+  });
+
+
+  function setPaused(nextPaused) {
+    if (!running || paused === nextPaused) return;
+
+    if (nextPaused) {
+      paused = true;
+      pauseStartedAt = performance.now();
+      stopControls();
+      controlsPad.dataset.active = "false";
+      pauseOverlay.hidden = false;
+      pauseBtn.setAttribute("aria-pressed", "true");
+      pauseBtn.setAttribute("aria-label", "Resume game");
+      pauseBtn.textContent = "▶ RESUME";
+      return;
+    }
+
+    const now = performance.now();
+    const pausedFor = now - pauseStartedAt;
+    paused = false;
+    pauseOverlay.hidden = true;
+    pauseBtn.setAttribute("aria-pressed", "false");
+    pauseBtn.setAttribute("aria-label", "Pause game");
+    pauseBtn.textContent = "Ⅱ PAUSE";
+
+    if (play) {
+      play.phaseStarted += pausedFor;
+      play.startedAt += pausedFor;
+    }
+    nextPlayAt += pausedFor;
+    for (const flash of caughtFlash) flash.started += pausedFor;
+    if (wideFlash) wideFlash.started += pausedFor;
+    if (concededFlash) concededFlash.started += pausedFor;
+    lastTime = now;
+    lastRenderTime = 0;
+  }
 
   window.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") { keys.left = true; event.preventDefault(); }
-    if (event.key === "ArrowRight") { keys.right = true; event.preventDefault(); }
+    if ((event.key === "p" || event.key === "P" || event.key === "Escape") && running) {
+      setPaused(!paused);
+      event.preventDefault();
+      return;
+    }
+    if (!paused && event.key === "ArrowLeft") { keys.left = true; event.preventDefault(); }
+    if (!paused && event.key === "ArrowRight") { keys.right = true; event.preventDefault(); }
     if ((event.key === " " || event.key === "Enter") && !running) {
       if (overlayAction === "next") startNextLevel(); else resetGame();
       event.preventDefault();
@@ -565,6 +653,9 @@
     if (event.key === "ArrowLeft") keys.left = false;
     if (event.key === "ArrowRight") keys.right = false;
   });
+  pauseBtn.addEventListener("click", () => setPaused(!paused));
+  resumeBtn.addEventListener("click", () => setPaused(false));
+
   soundBtn.addEventListener("click", () => {
     musicMuted = !musicMuted;
     soundBtn.setAttribute("aria-pressed", String(musicMuted));

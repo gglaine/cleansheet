@@ -150,7 +150,10 @@ canvas { display: block; width: 100%; height: auto; background: var(--grass); to
 .controls {
   position: relative;
   margin: -1px 8px 8px;
-  padding: 10px 12px 11px;
+  min-height: 92px;
+  padding: 13px 12px 13px;
+  touch-action: none;
+  cursor: ew-resize;
   text-align: center;
   border: 2px solid rgba(25,230,206,.7);
   border-top: 0;
@@ -178,6 +181,32 @@ canvas { display: block; width: 100%; height: auto; background: var(--grass); to
 .slide-cue span:last-child::before { content: "≫"; }
 .slide-cue b { color: #fff; font-size: 27px; text-shadow: 0 0 10px rgba(199,255,44,.3); }
 .controls strong { display: block; margin-top: 2px; font-size: 12px; letter-spacing: .13em; color: #e8fff0; }
+.controls[data-active="true"] {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 1px rgba(223,255,31,.28) inset, 0 0 18px rgba(223,255,31,.14);
+}
+
+.pause-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0,17,12,.62);
+}
+.pause-overlay[hidden] { display: none; }
+.pause-card {
+  width: min(260px, 86%);
+  padding: 20px 18px 17px;
+  text-align: center;
+  border: 2px solid var(--cyan);
+  border-radius: 13px;
+  background: rgba(2,31,29,.98);
+  box-shadow: 0 0 0 2px rgba(223,255,31,.15) inset, 0 14px 32px rgba(0,0,0,.36);
+}
+.pause-card p { margin: 0 0 13px; color: var(--lime); font-size: 18px; font-weight: 1000; letter-spacing: .08em; }
+.pause-card small { display: block; margin-top: 10px; color: #aab9ae; font-size: 10px; font-weight: 700; }
 
 .overlay { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 18px; background: rgba(0,17,12,.61); }
 .overlay[hidden] { display: none; }
@@ -222,6 +251,7 @@ button:active { transform: translateY(2px); box-shadow: 0 2px 0 #6c8e18; }
   align-items: center;
   gap: 6px;
 }
+.pause-btn,
 .sound-btn {
   width: auto;
   min-height: 0;
@@ -384,7 +414,7 @@ button:active { transform: translateY(2px); box-shadow: 0 2px 0 #6c8e18; }
 
 @media (max-width: 380px) {
   .topbar-actions { gap: 4px; }
-  .sound-btn { padding: 4px 5px; font-size: 7px; }
+  .pause-btn, .sound-btn { padding: 4px 5px; font-size: 7px; }
   .overlay-card { padding: 19px 14px 15px; }
   .milestone-stats strong { font-size: 21px; }
   .milestone-badge em { right: -42px; width: 48px; }
