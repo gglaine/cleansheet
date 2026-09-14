@@ -50,6 +50,10 @@
 
     <section class="game-stage">
       <div class="level-badge">LEVEL <b id="level">1</b><span>BEST <strong id="best">000</strong></span></div>
+      <div id="levelToast" class="level-toast" hidden>
+        <strong id="levelToastTitle">LEVEL 2</strong>
+        <span id="levelToastCopy">ROOFTOP NIGHT</span>
+      </div>
       <canvas id="game" width="420" height="560" aria-label="Slide the goalkeeper left and right to stop incoming shots"></canvas>
 
       <div id="overlay" class="overlay">
@@ -84,9 +88,13 @@
       </div>
     </section>
 
-    <section id="controlsPad" class="controls" aria-label="Goalkeeper control pad">
+    <section id="controlsPad" class="controls" aria-label="Swipe here to move the goalkeeper">
+      <div class="control-track" aria-hidden="true">
+        <span class="control-rail"></span>
+        <span id="controlThumb" class="control-thumb"></span>
+      </div>
       <div class="slide-cue" aria-hidden="true"><span>←</span><b>☝</b><span>→</span></div>
-      <strong>SLIDE TO SAVE</strong>
+      <strong>SWIPE HERE TO MOVE KEEPER</strong>
     </section>
   </main>
 

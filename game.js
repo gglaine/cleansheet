@@ -30,6 +30,10 @@
   const milestoneBadgeText = document.getElementById("milestoneBadgeText");
   const milestoneBest = document.getElementById("milestoneBest");
   const nextStage = document.getElementById("nextStage");
+  const levelToast = document.getElementById("levelToast");
+  const levelToastTitle = document.getElementById("levelToastTitle");
+  const levelToastCopy = document.getElementById("levelToastCopy");
+  const controlThumb = document.getElementById("controlThumb");
 
   const W = canvas.width;
   const H = canvas.height;
@@ -77,6 +81,27 @@
   const KEYBOARD_SPEED = 470;
   const SAVE_CONTACT_Y = KEEPER_Y - 7;
 
+
+  // Lightweight environment skins: gameplay geometry stays identical while the arena changes by level.
+  const LEVEL_THEMES = [
+    { name: "CLASSIC GREEN", surface: "grass", backdrop: "classic", top: "#42c936", mid: "#2fac2f", bottom: "#239329", line: "rgba(250,255,237,.92)", goalLine: "rgba(250,255,239,.58)", stripeA: "rgba(190,255,87,.10)", stripeB: "rgba(0,76,31,.13)", accent: "#dfff24", secondary: "#19e6ce" },
+    { name: "NIGHT TRAINING", surface: "grass", backdrop: "night", top: "#259c36", mid: "#197b34", bottom: "#105c30", line: "rgba(240,255,241,.90)", goalLine: "rgba(230,255,238,.56)", stripeA: "rgba(173,255,104,.06)", stripeB: "rgba(0,30,28,.12)", accent: "#bfff2a", secondary: "#43dce8" },
+    { name: "ROOFTOP CITY", surface: "court", backdrop: "city", top: "#25384b", mid: "#1c2d40", bottom: "#142233", line: "rgba(231,246,255,.92)", goalLine: "rgba(220,241,255,.62)", stripeA: "rgba(255,255,255,.026)", stripeB: "rgba(0,0,0,.07)", accent: "#ff58c7", secondary: "#35e2ff" },
+    { name: "CYBER TUNNEL", surface: "lane", backdrop: "tunnel", top: "#183640", mid: "#122c36", bottom: "#0c222b", line: "rgba(222,248,255,.94)", goalLine: "rgba(204,239,255,.68)", stripeA: "rgba(67,225,255,.025)", stripeB: "rgba(0,0,0,.055)", accent: "#dfff24", secondary: "#31dfff" },
+    { name: "ORBITAL DECK", surface: "hex", backdrop: "space", top: "#15343b", mid: "#112b32", bottom: "#0b2028", line: "rgba(222,255,192,.92)", goalLine: "rgba(239,255,204,.62)", stripeA: "rgba(255,255,255,.018)", stripeB: "rgba(0,0,0,.05)", accent: "#cfff29", secondary: "#59e7ff" },
+    { name: "HYPERGRID", surface: "grid", backdrop: "synth", top: "#102846", mid: "#10203c", bottom: "#10172f", line: "rgba(100,236,255,.95)", goalLine: "rgba(104,233,255,.68)", stripeA: "rgba(0,179,255,.022)", stripeB: "rgba(255,44,196,.025)", accent: "#ff4bd8", secondary: "#27e7ff" },
+    { name: "CITY AFTER RAIN", surface: "court", backdrop: "city", top: "#283346", mid: "#1c2939", bottom: "#111d2a", line: "rgba(234,248,255,.92)", goalLine: "rgba(220,244,255,.60)", stripeA: "rgba(51,228,255,.025)", stripeB: "rgba(255,74,189,.024)", accent: "#5ce7ff", secondary: "#ff5abf" },
+    { name: "DEEP TUNNEL", surface: "lane", backdrop: "tunnel", top: "#12343c", mid: "#0d2932", bottom: "#081d25", line: "rgba(221,253,255,.94)", goalLine: "rgba(191,240,255,.66)", stripeA: "rgba(223,255,36,.02)", stripeB: "rgba(0,0,0,.06)", accent: "#7dff5a", secondary: "#1fcbe7" },
+    { name: "LUNAR STATION", surface: "hex", backdrop: "space", top: "#1b313c", mid: "#142833", bottom: "#0d1e27", line: "rgba(235,255,205,.93)", goalLine: "rgba(228,255,198,.62)", stripeA: "rgba(168,210,255,.018)", stripeB: "rgba(0,0,0,.05)", accent: "#e7ff42", secondary: "#8fc9ff" },
+    { name: "NEON SUNSET", surface: "grid", backdrop: "synth", top: "#172449", mid: "#191e3d", bottom: "#16162f", line: "rgba(78,229,255,.96)", goalLine: "rgba(83,228,255,.68)", stripeA: "rgba(255,65,191,.03)", stripeB: "rgba(0,185,255,.02)", accent: "#ff5ac8", secondary: "#38e9ff" },
+    { name: "ZERO-G ARENA", surface: "hex", backdrop: "space", top: "#102d35", mid: "#0d252d", bottom: "#081a21", line: "rgba(226,255,190,.94)", goalLine: "rgba(230,255,197,.64)", stripeA: "rgba(223,255,36,.02)", stripeB: "rgba(0,0,0,.055)", accent: "#dfff24", secondary: "#29efff" },
+    { name: "FINAL CIRCUIT", surface: "grid", backdrop: "final", top: "#132b3f", mid: "#112235", bottom: "#0a1727", line: "rgba(229,255,217,.96)", goalLine: "rgba(229,255,217,.68)", stripeA: "rgba(223,255,36,.025)", stripeB: "rgba(25,230,206,.018)", accent: "#dfff24", secondary: "#19e6ce" }
+  ];
+
+  function currentTheme() {
+    return LEVEL_THEMES[Math.min(currentLevel - 1, LEVEL_THEMES.length - 1)];
+  }
+
   let running = false;
   let lastTime = 0;
   let lastRenderTime = 0;
@@ -89,6 +114,7 @@
   let caughtFlash = [];
   let wideFlash = null;
   let concededFlash = null;
+  let netImpact = null;
   let keeperX = W / 2;
   let pointerActive = false;
   let currentLevel = 1;
@@ -99,6 +125,7 @@
   let paused = false;
   let pauseStartedAt = 0;
   let levelTransitionTimer = 0;
+  let levelToastTimer = 0;
   let overlayAction = "restart";
   const keys = { left: false, right: false };
 
@@ -151,6 +178,22 @@
     levelEl.textContent = String(level());
   }
 
+
+  function hideLevelToast() {
+    clearTimeout(levelToastTimer);
+    levelToast.dataset.visible = "false";
+    levelToastTimer = window.setTimeout(() => { levelToast.hidden = true; }, 180);
+  }
+
+  function showLevelToast() {
+    clearTimeout(levelToastTimer);
+    levelToastTitle.textContent = `LEVEL ${currentLevel}`;
+    levelToastCopy.textContent = currentTheme().name;
+    levelToast.hidden = false;
+    requestAnimationFrame(() => { levelToast.dataset.visible = "true"; });
+    levelToastTimer = window.setTimeout(hideLevelToast, 1050);
+  }
+
   function updatePerformanceHud() {
     scoreEl.textContent = String(score).padStart(3, "0");
     shotsEl.textContent = String(shotsOnTarget).padStart(3, "0");
@@ -164,6 +207,7 @@
 
   function resetGame() {
     clearTimeout(levelTransitionTimer);
+    clearTimeout(levelToastTimer);
     running = true;
     paused = false;
     score = 0;
@@ -179,12 +223,17 @@
     caughtFlash = [];
     wideFlash = null;
     concededFlash = null;
+    netImpact = null;
     keeperX = W / 2;
+    controlsPad.style.setProperty("--control-ratio", "0.5");
     pointerActive = false;
     keys.left = false;
     keys.right = false;
     updatePerformanceHud();
     updateLevel();
+    buildStaticLayer();
+    levelToast.hidden = true;
+    levelToast.dataset.visible = "false";
     overlayEyebrow.textContent = "GOALKEEPER ARCADE";
     overlayTitle.textContent = "Save the line!";
     overlayCopy.textContent = "Read the build-up, track the final shot and cover the goal. Every on-target shot counts.";
@@ -432,6 +481,7 @@
     caughtFlash = caughtFlash.filter((f) => now - f.started < 290);
     if (wideFlash && now - wideFlash.started >= 430) wideFlash = null;
     if (concededFlash && now - concededFlash.started >= 430) concededFlash = null;
+    if (netImpact && now - netImpact.started >= 360) netImpact = null;
   }
 
   function updateKeeper(dt) {
@@ -503,35 +553,25 @@
 
   function startNextLevel() {
     clearTimeout(levelTransitionTimer);
+    if (currentLevel >= MAX_LEVEL) return;
     currentLevel += 1;
     levelStartScore = score;
     levelStartShots = shotsOnTarget;
-    running = true;
-    balls = [];
-    play = null;
-    caughtFlash = [];
-    wideFlash = null;
-    concededFlash = null;
-    keeperX = W / 2;
-    stopControls();
     updateLevel();
-    startBtn.hidden = false;
-    pauseBtn.disabled = false;
-    setMilestoneUi(false);
+    buildStaticLayer();
+    showLevelToast();
     setMusicMode("game");
-    overlay.hidden = true;
-    const now = performance.now();
-    nextPlayAt = now + 340;
-    lastTime = now;
-    lastRenderTime = 0;
-    requestAnimationFrame(loop);
   }
 
-  function checkLevelComplete() {
+  function checkLevelComplete(now) {
     if (shotsOnTarget - levelStartShots < SHOTS_PER_LEVEL) return false;
-    const completedLevel = currentLevel;
-    showLevelOverlay(completedLevel);
-    return true;
+    if (currentLevel >= MAX_LEVEL) {
+      showLevelOverlay(currentLevel);
+      return true;
+    }
+    startNextLevel();
+    nextPlayAt = now + NEXT_PLAY_DELAY_MS;
+    return false;
   }
 
   function finishPlay(now) {
@@ -560,7 +600,7 @@
       bestEl.textContent = String(best).padStart(3, "0");
     }
     updatePerformanceHud();
-    if (!checkLevelComplete()) finishPlay(now);
+    if (!checkLevelComplete(now)) finishPlay(now);
   }
 
   function concedeGoal(ball, now) {
@@ -570,14 +610,16 @@
     shotsOnTarget += 1;
     goalsConceded += 1;
     concededFlash = { x: ball.x, started: now };
+    netImpact = { x: ball.x, started: now, strength: 1 };
     updatePerformanceHud();
-    if (!checkLevelComplete()) finishPlay(now);
+    if (!checkLevelComplete(now)) finishPlay(now);
   }
 
   function setKeeperFromPointer(event) {
     const rect = controlsPad.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     keeperX = KEEPER_MIN_X + ratio * (KEEPER_MAX_X - KEEPER_MIN_X);
+    controlsPad.style.setProperty("--control-ratio", ratio.toFixed(3));
   }
 
   controlsPad.addEventListener("pointerdown", (event) => {
@@ -691,13 +733,14 @@
     drawPitch();
     drawFieldMarkings();
     drawArenaAccents();
-    drawGoal();
     ctx = liveCtx;
   }
 
   function draw(now) {
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(STATIC_LAYER, 0, 0);
+    drawAmbientBackdrop(now);
+    drawGoal(now);
     if (play) drawPlay(now);
 
     for (const ball of balls) {
@@ -712,37 +755,108 @@
   }
 
   function drawPitch() {
+    const theme = currentTheme();
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, "#42c936");
-    g.addColorStop(0.55, "#2fac2f");
-    g.addColorStop(1, "#239329");
+    g.addColorStop(0, theme.top);
+    g.addColorStop(0.55, theme.mid);
+    g.addColorStop(1, theme.bottom);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
 
-    // Stronger broadcast-style mowing bands to match the revamp reference.
     const stripeW = 50;
     for (let x = FIELD_LEFT; x < FIELD_RIGHT; x += stripeW) {
-      ctx.fillStyle = ((x - FIELD_LEFT) / stripeW) % 2 < 1
-        ? "rgba(190,255,87,.10)"
-        : "rgba(0,76,31,.13)";
+      ctx.fillStyle = ((x - FIELD_LEFT) / stripeW) % 2 < 1 ? theme.stripeA : theme.stripeB;
       ctx.fillRect(x, 0, stripeW, H);
     }
 
-    // Lightweight grass texture, deliberately regular so it stays crisp rather than noisy.
+    if (theme.surface === "grass") drawGrassTexture();
+    if (theme.surface === "court") drawCourtTexture();
+    if (theme.surface === "lane") drawLaneTexture(theme);
+    if (theme.surface === "hex") drawHexTexture(theme);
+    if (theme.surface === "grid") drawGridTexture(theme);
+  }
+
+  function drawGrassTexture() {
     ctx.fillStyle = "rgba(216,255,161,.035)";
     for (let y = 7; y < H; y += 17) {
-      for (let x = FIELD_LEFT + ((y / 17) % 2) * 7; x < FIELD_RIGHT; x += 19) {
-        ctx.fillRect(x, y, 2, 2);
-      }
+      for (let x = FIELD_LEFT + ((y / 17) % 2) * 7; x < FIELD_RIGHT; x += 19) ctx.fillRect(x, y, 2, 2);
     }
   }
 
+  function drawCourtTexture() {
+    ctx.save();
+    ctx.strokeStyle = "rgba(222,244,255,.055)";
+    ctx.lineWidth = 1;
+    for (let y = 0; y < H; y += 58) { ctx.beginPath(); ctx.moveTo(FIELD_LEFT, y); ctx.lineTo(FIELD_RIGHT, y); ctx.stroke(); }
+    for (let x = FIELD_LEFT; x < FIELD_RIGHT; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function drawLaneTexture(theme) {
+    ctx.save();
+    ctx.fillStyle = rgba(theme.secondary, .055);
+    const laneW = (FIELD_RIGHT - FIELD_LEFT) / 5;
+    for (let i = 0; i < 5; i += 2) ctx.fillRect(FIELD_LEFT + i * laneW, 0, laneW, H);
+    ctx.fillStyle = rgba(theme.secondary, .12);
+    for (let y = 82; y < H - 90; y += 118) {
+      for (const side of [-1, 1]) {
+        const x = W / 2 + side * 90;
+        ctx.beginPath();
+        ctx.moveTo(x - 10, y); ctx.lineTo(x, y + 12); ctx.lineTo(x + 10, y); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 7); ctx.lineTo(x - 6, y);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawHexTexture(theme) {
+    ctx.save();
+    ctx.strokeStyle = rgba(theme.secondary, .075);
+    ctx.lineWidth = 1;
+    const r = 26;
+    const h = Math.sin(Math.PI / 3) * r;
+    let row = 0;
+    for (let y = -h; y < H + h; y += h) {
+      for (let x = FIELD_LEFT - r; x < FIELD_RIGHT + r; x += r * 1.5) drawHex(x + (row % 2 ? r * .75 : 0), y, r);
+      row += 1;
+    }
+    ctx.restore();
+  }
+
+  function drawHex(x, y, r) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const a = Math.PI / 3 * i;
+      const px = x + Math.cos(a) * r;
+      const py = y + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  function drawGridTexture(theme) {
+    ctx.save();
+    ctx.strokeStyle = rgba(theme.secondary, .12);
+    ctx.lineWidth = 1;
+    for (let x = FIELD_LEFT; x <= FIELD_RIGHT; x += 38) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += 38) { ctx.beginPath(); ctx.moveTo(FIELD_LEFT, y); ctx.lineTo(FIELD_RIGHT, y); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function rgba(hex, alpha) {
+    const clean = hex.replace("#", "");
+    const n = parseInt(clean, 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+  }
+
   function drawFieldMarkings() {
+    const theme = currentTheme();
     const penaltyLeft = (W - PENALTY_AREA_WIDTH) / 2;
     const goalAreaLeft = (W - GOAL_AREA_WIDTH) / 2;
     ctx.save();
-    ctx.strokeStyle = "rgba(250,255,237,.92)";
-    ctx.fillStyle = "rgba(250,255,237,.92)";
+    ctx.strokeStyle = theme.line;
+    ctx.fillStyle = theme.line;
     ctx.lineWidth = 3;
 
     ctx.strokeRect(penaltyLeft, PENALTY_AREA_TOP, PENALTY_AREA_WIDTH, GOAL_LINE_Y - PENALTY_AREA_TOP);
@@ -763,37 +877,111 @@
   }
 
   function drawArenaAccents() {
+    const theme = currentTheme();
     ctx.save();
-    ctx.fillStyle = "rgba(0,22,23,.82)";
+    ctx.fillStyle = "rgba(0,18,23,.82)";
     ctx.fillRect(0, 0, FIELD_LEFT, H);
     ctx.fillRect(FIELD_RIGHT, 0, W - FIELD_RIGHT, H);
 
-    // Lean diagonal speed streaks echo the arcade/manga framing without entering play space.
-    ctx.strokeStyle = "rgba(204,255,34,.62)";
+    ctx.strokeStyle = rgba(theme.accent, .58);
     ctx.lineWidth = 2;
     for (let i = 0; i < 7; i++) {
-      const y = 50 + i * 72;
+      const y = 48 + i * 72;
       ctx.beginPath();
       ctx.moveTo(FIELD_LEFT + 1, y);
-      ctx.lineTo(FIELD_LEFT + 15, y + 25);
+      ctx.lineTo(FIELD_LEFT + 12, y + 22);
       ctx.moveTo(FIELD_RIGHT - 1, y + 4);
-      ctx.lineTo(FIELD_RIGHT - 15, y + 29);
+      ctx.lineTo(FIELD_RIGHT - 12, y + 26);
       ctx.stroke();
     }
-    ctx.strokeStyle = "rgba(24,229,206,.36)";
-    ctx.lineWidth = 1;
+
+    ctx.strokeStyle = rgba(theme.secondary, .40);
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(FIELD_LEFT + 3, 0); ctx.lineTo(FIELD_LEFT + 3, H);
     ctx.moveTo(FIELD_RIGHT - 3, 0); ctx.lineTo(FIELD_RIGHT - 3, H);
     ctx.stroke();
+    drawBackdrop(theme);
     ctx.restore();
   }
 
-  function drawGoal() {
+  function drawBackdrop(theme) {
+    if (theme.backdrop === "classic") return;
+    ctx.save();
+    if (theme.backdrop === "night") {
+      ctx.fillStyle = "rgba(1,13,29,.20)";
+      ctx.fillRect(FIELD_LEFT, 0, FIELD_RIGHT - FIELD_LEFT, 54);
+      ctx.fillStyle = "rgba(207,255,226,.24)";
+      for (let x = FIELD_LEFT + 22; x < FIELD_RIGHT; x += 68) ctx.fillRect(x, 10, 18, 2);
+    } else if (theme.backdrop === "city") {
+      ctx.fillStyle = "rgba(4,10,28,.44)";
+      ctx.fillRect(FIELD_LEFT, 0, FIELD_RIGHT - FIELD_LEFT, 72);
+      for (let i = 0; i < 10; i++) {
+        const x = FIELD_LEFT + 8 + i * 39;
+        const h = 15 + (i % 4) * 9;
+        ctx.fillStyle = i % 2 ? rgba(theme.secondary, .18) : rgba(theme.accent, .18);
+        ctx.fillRect(x, 70 - h, 16, h);
+      }
+      ctx.strokeStyle = "rgba(230,245,255,.18)";
+      ctx.beginPath(); ctx.moveTo(FIELD_LEFT, 71); ctx.lineTo(FIELD_RIGHT, 71); ctx.stroke();
+    } else if (theme.backdrop === "tunnel") {
+      ctx.strokeStyle = rgba(theme.secondary, .22);
+      ctx.lineWidth = 3;
+      for (let r = 52; r <= 132; r += 26) { ctx.beginPath(); ctx.arc(W / 2, 18, r, 0, Math.PI); ctx.stroke(); }
+    } else if (theme.backdrop === "space" || theme.backdrop === "final") {
+      ctx.fillStyle = "rgba(3,9,20,.52)";
+      ctx.fillRect(FIELD_LEFT, 0, FIELD_RIGHT - FIELD_LEFT, 62);
+      ctx.fillStyle = "rgba(255,255,255,.38)";
+      for (let i = 0; i < 20; i++) {
+        const x = FIELD_LEFT + 9 + (i * 31) % (FIELD_RIGHT - FIELD_LEFT - 18);
+        const y = 7 + (i * 19) % 46;
+        ctx.fillRect(x, y, 1.3, 1.3);
+      }
+      ctx.fillStyle = rgba(theme.secondary, theme.backdrop === "final" ? .18 : .12);
+      ctx.beginPath(); ctx.arc(FIELD_LEFT + 54, 26, theme.backdrop === "final" ? 28 : 21, 0, Math.PI * 2); ctx.fill();
+    } else if (theme.backdrop === "synth") {
+      const g = ctx.createLinearGradient(0, 0, 0, 80);
+      g.addColorStop(0, rgba(theme.accent, .18));
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g; ctx.fillRect(FIELD_LEFT, 0, FIELD_RIGHT - FIELD_LEFT, 80);
+      ctx.strokeStyle = rgba(theme.secondary, .16);
+      ctx.beginPath(); ctx.moveTo(FIELD_LEFT, 67); ctx.lineTo(FIELD_RIGHT, 67); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawAmbientBackdrop(now) {
+    const theme = currentTheme();
+    const pulse = (Math.sin(now / 430) + 1) * .5;
+    ctx.save();
+    if (theme.backdrop === "city" || theme.backdrop === "synth") {
+      ctx.globalAlpha = .12 + pulse * .12;
+      ctx.fillStyle = theme.accent;
+      ctx.fillRect(FIELD_LEFT + 4, 42, 2, 92);
+      ctx.fillRect(FIELD_RIGHT - 6, 92, 2, 102);
+    } else if (theme.backdrop === "tunnel") {
+      ctx.globalAlpha = .12 + pulse * .08;
+      ctx.strokeStyle = theme.secondary;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(W / 2, 18, 96 + pulse * 5, 0, Math.PI); ctx.stroke();
+    } else if (theme.backdrop === "space" || theme.backdrop === "final") {
+      ctx.globalAlpha = .13;
+      ctx.fillStyle = theme.secondary;
+      const drift = (now / 45) % (FIELD_RIGHT - FIELD_LEFT);
+      for (let i = 0; i < 4; i++) {
+        const x = FIELD_LEFT + ((drift + i * 96) % (FIELD_RIGHT - FIELD_LEFT));
+        ctx.fillRect(x, 28 + i * 9, 1.5, 1.5);
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawGoal(now) {
+    const theme = currentTheme();
     ctx.save();
 
     // The front frame now sits on the same level as the field goal line.
-    ctx.strokeStyle = "rgba(250,255,239,.58)";
+    ctx.strokeStyle = theme.goalLine;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(FIELD_LEFT, GOAL_LINE_Y);
@@ -814,25 +1002,31 @@
     ctx.closePath();
     ctx.fill();
 
-    ctx.strokeStyle = "rgba(243,255,236,.34)";
+    ctx.strokeStyle = rgba(theme.secondary, .34);
     ctx.lineWidth = 0.8;
     for (let i = 1; i < 17; i++) {
       const t = i / 17;
+      const frontX = GOAL_LEFT + GOAL_WIDTH * t;
+      const backX = backLeft + (backRight - backLeft) * t;
+      const bulge = netBulge(frontX, now);
       ctx.beginPath();
-      ctx.moveTo(GOAL_LEFT + GOAL_WIDTH * t, GOAL_FRONT_Y + 2);
-      ctx.lineTo(backLeft + (backRight - backLeft) * t, backY);
+      ctx.moveTo(frontX, GOAL_FRONT_Y + 2);
+      ctx.quadraticCurveTo((frontX + backX) * .5, GOAL_FRONT_Y + 17 + bulge * .45, backX, backY + bulge);
       ctx.stroke();
     }
     for (let i = 1; i <= 7; i++) {
       const t = i / 7;
       const y = GOAL_FRONT_Y + 2 + (backY - GOAL_FRONT_Y - 2) * t;
+      const leftX = GOAL_LEFT + 12 * t;
+      const rightX = GOAL_RIGHT - 12 * t;
+      const centerBulge = netBulge(W / 2, now) * (.25 + t * .75);
       ctx.beginPath();
-      ctx.moveTo(GOAL_LEFT + 12 * t, y);
-      ctx.lineTo(GOAL_RIGHT - 12 * t, y);
+      ctx.moveTo(leftX, y);
+      ctx.quadraticCurveTo(W / 2, y + centerBulge, rightX, y);
       ctx.stroke();
     }
 
-    ctx.strokeStyle = "#fbfff2";
+    ctx.strokeStyle = theme.line;
     ctx.lineWidth = 4;
     ctx.lineCap = "square";
     ctx.beginPath();
@@ -844,22 +1038,40 @@
     ctx.lineTo(GOAL_RIGHT - 1, GOAL_FRONT_Y);
     ctx.stroke();
 
-    ctx.strokeStyle = "rgba(246,255,240,.66)";
+    ctx.strokeStyle = rgba(theme.secondary, .66);
     ctx.lineWidth = 1.4;
     ctx.beginPath();
     ctx.moveTo(backLeft, backY);
     ctx.lineTo(backRight, backY);
     ctx.stroke();
+    if (netImpact) {
+      const age = now - netImpact.started;
+      const t = Math.min(1, age / 300);
+      ctx.globalAlpha = Math.max(0, 1 - t);
+      ctx.strokeStyle = rgba(theme.accent, .75);
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(netImpact.x, GOAL_FRONT_Y + 14, 7 + t * 19, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.restore();
+  }
+
+  function netBulge(x, now) {
+    if (!netImpact) return 0;
+    const age = now - netImpact.started;
+    const t = Math.min(1, age / 340);
+    const decay = 1 - t;
+    const wave = Math.sin(t * Math.PI * 3.2) * decay;
+    const influence = Math.max(0, 1 - Math.abs(x - netImpact.x) / 95);
+    return (15 * decay + wave * 5) * influence * netImpact.strength;
   }
 
   function dribbleBallPose(player, now) {
     const cycle = ((now + player.phase * 80) % DRIBBLE_CYCLE_MS) / DRIBBLE_CYCLE_MS;
-    const touch = cycle < 0.5 ? cycle * 2 : (1 - cycle) * 2;
-    const lead = DRIBBLE_MIN_LEAD + (DRIBBLE_MAX_LEAD - DRIBBLE_MIN_LEAD) * touch;
-    const side = cycle < 0.5 ? -1 : 1;
+    const lead = (DRIBBLE_MIN_LEAD + DRIBBLE_MAX_LEAD) * 0.5;
     return {
-      x: player.x + side * (2.5 + touch * 2.5),
+      x: player.x,
       y: player.y + 24 + lead,
       rotation: cycle * Math.PI * 2
     };
@@ -978,18 +1190,26 @@
     ctx.restore();
   }
 
+  function attackerGait(player) {
+    const travel = player.runTargetY - player.startY;
+    if (travel <= 0) return 0;
+    const progress = Math.max(0, Math.min(1, (player.y - player.startY) / travel));
+    if (progress >= 0.995) return 0;
+    return Math.sin(progress * Math.PI * 8 + player.phase);
+  }
+
   function drawAttackerSprite(player, now, isShooter, hasBall, windupProgress = null) {
     const isWinding = windupProgress !== null;
-    const run = isWinding ? 0 : Math.sin(now / 92 + player.phase);
+    const run = isWinding ? 0 : attackerGait(player);
     const wind = isWinding ? Math.sin(Math.min(1, windupProgress * 1.18) * Math.PI * 0.5) : 0;
-    const bob = isWinding ? -wind * 1.2 : Math.abs(run) * -1.1;
-    const lean = isWinding ? -0.10 * wind : (hasBall ? 0.045 : 0.018);
+    const bob = isWinding ? -wind * 1.2 : Math.abs(run) * -0.7;
+    const lean = isWinding ? -0.10 * wind : (hasBall ? 0.025 : 0.01);
     const shirt = player.jersey === "blue" ? "#1554a5" : "#f4f5ee";
     const trim = player.jersey === "blue" ? "#f3f5ec" : "#d8322c";
 
     ctx.save();
     ctx.translate(player.x, player.y + bob);
-    ctx.rotate(isWinding ? lean : lean * (run >= 0 ? 1 : -1));
+    ctx.rotate(lean);
 
     // Compact Kick Off-like shadow/readability.
     ctx.fillStyle = "rgba(0,45,20,.24)";
@@ -997,7 +1217,7 @@
     ctx.ellipse(2, 19, 11.5, 4.4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Arms first to keep a crisp silhouette, inspired by classic 16-bit top-down footballers.
+    // Arms counter the stride without rocking the whole body left/right.
     ctx.strokeStyle = "#d6a57b";
     ctx.lineWidth = 3.3;
     ctx.lineCap = "round";
@@ -1006,12 +1226,12 @@
       ctx.moveTo(-6, -1); ctx.lineTo(-11 - wind * 2, 4);
       ctx.moveTo(6, -1); ctx.lineTo(10 + wind * 4, -4);
     } else {
-      ctx.moveTo(-6, -1); ctx.lineTo(-10 + run * 3.2, 6);
-      ctx.moveTo(6, -1); ctx.lineTo(10 - run * 3.2, 6);
+      ctx.moveTo(-6, -1); ctx.lineTo(-9, 5 - run * 2.2);
+      ctx.moveTo(6, -1); ctx.lineTo(9, 5 + run * 2.2);
     }
     ctx.stroke();
 
-    // Body block: intentionally simpler and squatter than the previous more illustrative player.
+    // Body block: intentionally simple and compact for top-down readability.
     ctx.fillStyle = shirt;
     ctx.strokeStyle = "#182228";
     ctx.lineWidth = 1.8;
@@ -1039,7 +1259,7 @@
     ctx.closePath();
     ctx.fill();
 
-    // Legs / boots: shorter and snappier so the sprite feels closer to Kick Off.
+    // Legs move fore/aft with the run instead of swinging laterally across the pitch.
     ctx.strokeStyle = "#151e22";
     ctx.lineWidth = 3.8;
     ctx.beginPath();
@@ -1047,11 +1267,11 @@
       const swing = windupProgress < 0.62
         ? windupProgress / 0.62
         : 1 - ((windupProgress - 0.62) / 0.38) * 1.55;
-      ctx.moveTo(-3, 12); ctx.lineTo(-6, 21);
-      ctx.moveTo(3, 12); ctx.lineTo(8 + swing * 4, 18 - swing * 6);
+      ctx.moveTo(-3, 12); ctx.lineTo(-5, 21);
+      ctx.moveTo(3, 12); ctx.lineTo(7 + swing * 4, 18 - swing * 6);
     } else {
-      ctx.moveTo(-3, 12); ctx.lineTo(-5.5 - run * 3.8, 20);
-      ctx.moveTo(3, 12); ctx.lineTo(5.5 + run * 3.8, 20);
+      ctx.moveTo(-3, 12); ctx.lineTo(-4.5, 20 + run * 3.2);
+      ctx.moveTo(3, 12); ctx.lineTo(4.5, 20 - run * 3.2);
     }
     ctx.stroke();
 
@@ -1062,11 +1282,11 @@
       const swing = windupProgress < 0.62
         ? windupProgress / 0.62
         : 1 - ((windupProgress - 0.62) / 0.38) * 1.55;
-      ctx.moveTo(-6, 21); ctx.lineTo(-8.5, 22.5);
-      ctx.moveTo(8 + swing * 4, 18 - swing * 6); ctx.lineTo(10.5 + swing * 4, 19 - swing * 6);
+      ctx.moveTo(-5, 21); ctx.lineTo(-7.2, 22.3);
+      ctx.moveTo(7 + swing * 4, 18 - swing * 6); ctx.lineTo(9.5 + swing * 4, 19 - swing * 6);
     } else {
-      ctx.moveTo(-5.5 - run * 3.8, 20); ctx.lineTo(-8 - run * 3.8, 21.5);
-      ctx.moveTo(5.5 + run * 3.8, 20); ctx.lineTo(8 + run * 3.8, 21.5);
+      ctx.moveTo(-4.5, 20 + run * 3.2); ctx.lineTo(-6.8, 21.3 + run * 3.2);
+      ctx.moveTo(4.5, 20 - run * 3.2); ctx.lineTo(6.8, 21.3 - run * 3.2);
     }
     ctx.stroke();
 
@@ -1189,8 +1409,8 @@
     const idle = (now % 1400) / 1400;
     const open = (1 + Math.cos(idle * Math.PI * 2)) * 0.5;
     const cross = 1 - open;
-    const sway = Math.sin(idle * Math.PI * 2) * 1.2;
-    const torsoLift = Math.sin(idle * Math.PI * 2) * 0.8;
+    const sway = Math.sin(idle * Math.PI * 2) * 1.0;
+    const torsoLift = Math.sin(idle * Math.PI * 2) * 0.65;
     const handX = 8 + open * 17;
     const handY = -11 - cross * 8;
 
@@ -1199,28 +1419,28 @@
 
     ctx.fillStyle = "rgba(0,45,18,.28)";
     ctx.beginPath();
-    ctx.ellipse(2, 18, 19, 5.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(2, 18, 16.5, 4.8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Smaller, Kick Off-like keeper silhouette relative to the goal.
+    // Leaner keeper body while preserving the existing gameplay reach.
     ctx.fillStyle = "#151b1d";
-    ctx.fillRect(-11, 11, 22, 8);
-    ctx.fillRect(-12, 18, 7, 8);
-    ctx.fillRect(5, 18, 7, 8);
+    ctx.fillRect(-9, 10, 18, 7);
+    ctx.fillRect(-9.5, 17, 5.5, 7);
+    ctx.fillRect(4, 17, 5.5, 7);
 
     ctx.strokeStyle = "#d8aa7d";
-    ctx.lineWidth = 5.2;
+    ctx.lineWidth = 4.1;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(-10, 0); ctx.lineTo(-handX + 4, handY + 4);
-    ctx.moveTo(10, 0); ctx.lineTo(handX - 4, handY + 4);
+    ctx.moveTo(-8, 0); ctx.lineTo(-handX + 3.5, handY + 4);
+    ctx.moveTo(8, 0); ctx.lineTo(handX - 3.5, handY + 4);
     ctx.stroke();
 
     ctx.fillStyle = "#dfff24";
     ctx.strokeStyle = "#14241e";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.roundRect(-13, -4, 26, 20, 6);
+    ctx.roundRect(-10.5, -4, 21, 18, 5);
     ctx.fill();
     ctx.stroke();
 
@@ -1229,17 +1449,17 @@
 
     ctx.fillStyle = "#d6a276";
     ctx.beginPath();
-    ctx.arc(0, -7, 7.2, 0, Math.PI * 2);
+    ctx.arc(0, -7, 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#202526";
     ctx.beginPath();
-    ctx.arc(0, -8.8, 7.3, Math.PI, Math.PI * 2);
+    ctx.arc(0, -8.5, 6.1, Math.PI, Math.PI * 2);
     ctx.fill();
 
     ctx.textAlign = "center";
-    ctx.font = "900 10px Arial";
+    ctx.font = "900 9px Arial";
     ctx.fillStyle = "#17221c";
-    ctx.fillText("1", 0, 10);
+    ctx.fillText("1", 0, 8.5);
     ctx.restore();
   }
 
@@ -1249,15 +1469,15 @@
     ctx.rotate(rotation);
     ctx.fillStyle = "#f8fff5";
     ctx.strokeStyle = "#28333a";
-    ctx.lineWidth = 1.6;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.roundRect(-6.5, -5.8, 13, 11.6, 3.4);
+    ctx.roundRect(-5.5, -5, 11, 10, 3);
     ctx.fill();
     ctx.stroke();
     ctx.strokeStyle = "#7d8b8d";
-    ctx.lineWidth = 1.2;
-    for (let i = -3; i <= 3; i += 3) {
-      ctx.beginPath(); ctx.moveTo(i, -4); ctx.lineTo(i, 2.5); ctx.stroke();
+    ctx.lineWidth = 1.1;
+    for (let i = -2.5; i <= 2.5; i += 2.5) {
+      ctx.beginPath(); ctx.moveTo(i, -3.5); ctx.lineTo(i, 2.2); ctx.stroke();
     }
     ctx.restore();
   }
@@ -1316,6 +1536,7 @@
   // Static first frame: show a readable two-player build-up rather than an unexplained loose ball.
   buildStaticLayer();
   ctx.drawImage(STATIC_LAYER, 0, 0);
+  drawGoal(performance.now());
   play = {
     players: [
       { x: W * 0.29, y: H * 0.19, startY: H * 0.19, runTargetY: H * 0.31, phase: 0, jersey: "white" },
